@@ -1,38 +1,35 @@
 <template>
     <div class="content">
-        <table>
+        <table class="table is-hover">
             <thead>
                 <tr>
-                    <th v-if="edit_mode">
-                        <span v-if="edit_mode"> delete </span>
-                    </th>
                     <th>id</th>
                     <th>description</th>
                     <th>val1</th>
                     <th>val2</th>
+                    <th v-if="edit_mode">
+                        <span v-if="edit_mode"> delete </span>
+                    </th>
                 </tr>
             </thead>
 
             <tbody>
                 <tr v-for="(choice, index) in choices" :key="index">
-                    <td v-if="edit_mode">
-                        <input
-                            class="checkbox"
-                            type="checkbox"
-                            :value="choice.id"
-                            :id="choice.id"
-                            v-model="delete_candidates"
-                            :disabled="!edit_mode"
-                        />
-                    </td>
-
                     <td>
                         <input
                             class="input"
+                            :class="{
+                                'is-warning': is_modified_field(index).id,
+                                'is-danger':
+                                    check_id_duplication().includes(
+                                        choice.id
+                                    ) || choice.id == '',
+                            }"
+                            :disabled="delete_candidates.includes(choice.id)"
                             type="text"
                             v-model="choices[index].id"
-                            @blur="check_id_duplication"
                             v-if="edit_mode"
+                            @blur="1 /*check_id_duplication*/"
                         />
                         <span v-if="!edit_mode">
                             {{ choices[index].id }}
@@ -42,6 +39,11 @@
                     <td>
                         <input
                             class="input"
+                            :class="{
+                                'is-warning': is_modified_field(index)
+                                    .description,
+                            }"
+                            :disabled="delete_candidates.includes(choice.id)"
                             type="text"
                             v-model="choices[index].description"
                             v-if="edit_mode"
@@ -54,6 +56,10 @@
                     <td>
                         <input
                             class="input"
+                            :class="{
+                                'is-warning': is_modified_field(index).cost,
+                            }"
+                            :disabled="delete_candidates.includes(choice.id)"
                             type="number"
                             v-model="choices[index].cost"
                             v-if="edit_mode"
@@ -66,6 +72,10 @@
                     <td>
                         <input
                             class="input"
+                            :class="{
+                                'is-wƒarning': is_modified_field(index).list,
+                            }"
+                            :disabled="delete_candidates.includes(choice.id)"
                             type="number"
                             v-model="choices[index].list"
                             v-if="edit_mode"
@@ -74,18 +84,22 @@
                             {{ choices[index].list }}
                         </span>
                     </td>
+
+                    <td v-if="edit_mode">
+                        <label>
+                            <input
+                                class="checkbox is-danger"
+                                type="checkbox"
+                                :value="choice.id"
+                                :id="choice.id"
+                                v-model="delete_candidates"
+                                :disabled="!edit_mode"
+                            />
+                        </label>
+                    </td>
                 </tr>
 
                 <tr v-show="edit_mode">
-                    <td>
-                        <button
-                            class="button is-info"
-                            v-bind:disabled="!add_available"
-                            @click="add_choice"
-                        >
-                            add
-                        </button>
-                    </td>
                     <td>
                         <input
                             class="input"
@@ -121,6 +135,12 @@
                             @keydown.enter="add_choice"
                         />
                     </td>
+
+                    <td>
+                        <button class="button is-info" @click="add_choice">
+                            add
+                        </button>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -132,16 +152,14 @@
             </button>
 
             <button
-                class="button is-danger"
-                :disabled="!edit_mode || delete_candidates.length == 0"
-                @click="delete_choices"
+                class="button is-warning"
+                :disabled="!edit_mode || !update_available"
+                @click="update_choice"
             >
-                delete
-            </button>
-
-            <button class="button is-warning" :disabled="!edit_mode">
                 update
             </button>
+
+            <button class="button is-primary" @click="dump()">dump</button>
         </span>
     </div>
 </template>
@@ -155,65 +173,104 @@ export default Vue.extend({
     data: function () {
         return {
             edit_mode: false,
-            add_available: false,
             update_available: true,
             new_choice: new Choice("", "", 0, 0),
-            delete_candidates: [],
+            delete_candidates: new Array<string>(),
+            choices: new Array<Choice>(),
         };
     },
     methods: {
         add_choice: function () {
-            if (this.add_available) {
-                const tmp_coices: Array<Choice> = this.choices;
-                tmp_coices.push(this.new_choice);
-                this.choices.push(this.new_choice);
-                this.$store.dispatch("a_choice_put", tmp_coices);
-                this.new_choice = new Choice("", "", 0, 0);
+            this.choices.push(this.new_choice);
+            this.new_choice = new Choice("", "", 0, 0);
+        },
+
+        update_choice: function () {
+            this.$store
+                .dispatch(
+                    "a_choice_put",
+                    this.choices.filter(
+                        (e: Choice) => !this.delete_candidates.includes(e.id)
+                    )
+                )
+                .then(() => {
+                    this.copy_master();
+                    this.delete_candidates = new Array();
+                });
+        },
+
+        check_id_duplication: function (): Array<string> {
+            let counter: { [key: string]: number } = {};
+
+            this.choices.forEach((e: Choice) => {
+                if (!(e.id in counter)) counter[e.id] = 0;
+                counter[e.id] += 1;
+            });
+
+            let dups: Array<string> = [];
+            let include_blank_id = false;
+            for (let key in counter) {
+                if (key == "") include_blank_id = true;
+                if (counter[key] >= 2) dups.push(key);
             }
+
+            this.update_available = dups.length == 0 && !include_blank_id;
+            return dups;
         },
 
-        check_new_id: function () {
-            this.add_available =
-                this.new_choice.id != "" &&
-                !this.choices
-                    .map((e: Choice) => e.id)
-                    .includes(this.new_choice.id);
+        is_modified_field: function (
+            index: number
+        ): { [key: string]: boolean } {
+            let rev: { [key: string]: boolean } = {
+                id: true,
+                description: true,
+                cost: true,
+                list: true,
+            };
+
+            if (index < this.$store.getters.choices.length) {
+                const current_choice = this.choices[index];
+                const master_choice = this.$store.getters.choices[index];
+
+                rev.id = current_choice.id != master_choice.id;
+                rev.cost = current_choice.cost != master_choice.cost;
+                rev.list = current_choice.list != master_choice.list;
+                rev.description =
+                    current_choice.description != master_choice.description;
+            }
+
+            return rev;
         },
 
-        check_id_duplication: function () {
-            const id_array: Array<string> = this.choices.map(
-                (e: Choice) => e.id
+        dump() {
+            console.clear();
+            console.log("==master==");
+            for (let i in this.$store.getters.choices) {
+                const cm = this.$store.getters.choices[i];
+                console.log(cm.id, cm.description, cm.cost, cm.list);
+            }
+
+            console.log("--choice---");
+            for (let i in this.choices) {
+                const cm = this.choices[i];
+                console.log(cm.id, cm.description, cm.cost, cm.list);
+            }
+
+            console.log("delete candidate", this.delete_candidates);
+        },
+
+        copy_master() {
+            this.choices = this.$store.getters.choices.map(
+                (e: Choice) => new Choice(e.id, e.description, e.list, e.cost)
             );
-            const id_set: Set<string> = new Set(id_array);
-
-            this.update_available = id_array.length == id_set.size;
-        },
-
-        delete_choices: function () {
-            console.log(this.delete_candidates);
-            this.$store.dispatch("a_choice_delete", this.delete_candidates);
-        },
-    },
-
-    computed: {
-        ...mapGetters(["choices"]),
-    },
-
-    watch: {
-        new_choice: {
-            handler: function () {
-                this.check_new_id();
-            },
-            deep: true,
         },
     },
 
     mounted: function () {
-        // this.$store.dispatch("a_choice_put", [
-        //     new Choice("hello1", "description1", 10, 1),
-        //     new Choice("hello2", "description2", 20, 1),
-        //     new Choice("hello3", "description3", 30, 1),
-        // ]);
+        this.$store.dispatch("a_choice_get").then(() => {
+            this.copy_master();
+            this.dump();
+        });
     },
 });
 </script>
