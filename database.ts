@@ -1,95 +1,83 @@
-import Dexie from 'dexie';
-
-const dbname = 'AppDB'
-
-export class AppDatabase extends Dexie {
-    choices: Dexie.Table<IChoice, string>;
-    models: Dexie.Table<IModel, number>;
-    relmodelchoices: Dexie.Table<IRelModelChoice, number>;
-
-    constructor() {
-        super(dbname);
-
-        this.version(1).stores({
-            choices: '&id, description, list, cost',
-            // choices: '++id, modelnumber, description, list, cost',
-            models: '++id, description, list, cost',
-            relmodelchoices: '++id, modelid, choiceid',
-        });
-
-        this.choices = this.table("choices");
-        // this.choices.mapToClass(Choice);
-
-        this.models = this.table("models");
-        // this.models.mapToClass(Model);
-
-        this.relmodelchoices = this.table("relmodelchoices");
-        // this.relmodelchoices.mapToClass(RelModelChoice);
-
-    }
-}
-
 export interface IChoice {
-    id: string; // primary key
-    // modelnumber: string; // unique key
+    id: number;
+    partnumber: string; // parts number
     description: string;
     list: number;
     cost: number;
-    updated: Date;
 }
 
-export class Choice implements IChoice {
-    id: string;
-    // modelnumber: string = '';
+export class SChoice implements IChoice {
+    id: number;
+    partnumber: string;
     description = '';
     list = 0;
     cost = 0;
+
     updated: Date;
 
-    constructor(id: string, description: string, list: number, cost: number) {
-        this.id = id;
-        // this.modelnumber = modelnumber;
+    constructor(partnumber: string, description: string, list: number, cost: number) {
+        this.id = -1;
+        this.partnumber = partnumber;
         this.description = description;
         this.list = list;
         this.cost = cost;
         this.updated = new Date();
     }
-}
 
-export interface IModel {
-    id: number; // primary key
-    description: string;
-    list: number;
-    cost: number;
-}
-
-export class Model implements IModel {
-    id: number;
-    description: string;
-    list: number;
-    cost: number;
-
-    constructor(id: number, description: string) {
-        this.id = id;
-        this.description = description;
-        this.list = 0;
-        this.cost = 0;
+    toVChoice(): VChoice {
+        const v = new VChoice(this.partnumber, this.description, this.list, this.cost, false);
+        v.id = this.id;
+        return v;
     }
 }
 
-export interface IRelModelChoice {
-    modelid: number;
-    choiceid: string;
-}
 
-export class RelModelChoice implements IRelModelChoice {
-    id: number;
-    modelid: number;
-    choiceid: string;
+export class VChoice implements IChoice {
+    static count: number = 0;
 
-    constructor(id: number, modelid: number, choiceid: string) {
-        this.id = id;
-        this.modelid = modelid;
-        this.choiceid = choiceid;
+    id: number = -1;
+
+    partnumber: string;
+    partnumber_changed: boolean;
+    partnumber_alarmed: boolean;
+
+    description: string;
+    description_changed: boolean;
+
+    list: number;
+    list_changed: boolean;
+
+    cost: number;
+    cost_changed: boolean;
+
+    delete_scheduled: boolean;
+
+    // updated_date: Date;
+
+    constructor(partnumber: string, description: string, list: number, cost: number, countup: boolean = true) {
+        if (countup) {
+            this.id = VChoice.count;
+            VChoice.count += 1;
+        }
+
+        this.partnumber = partnumber;
+        this.description = description;
+        this.list = list;
+        this.cost = cost;
+
+        this.partnumber_changed = false;
+        this.partnumber_alarmed = false;
+        this.description_changed = false;
+        this.list_changed = false;
+        this.cost_changed = false;
+        this.delete_scheduled = false;
+
+        // this.updated_date = new Date();
+    }
+
+    toSChoice(): SChoice {
+        const s = new SChoice(this.partnumber, this.description, this.list, this.cost);
+        s.id = this.id;
+        return s;
     }
 }

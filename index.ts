@@ -6,8 +6,5 @@ new Vue({
     el: '#app',
     store,
     components: { App },
-    mounted: function () {
-        this.$store.dispatch('a_choice_get')
-    }
 });
 
