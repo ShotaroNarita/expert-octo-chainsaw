@@ -1,6 +1,6 @@
 <template>
     <div class="content">
-        <h1>Editor choice</h1>
+        <h1>Choice Editor</h1>
 
         <table class="table">
             <!-- <tbody is="transition-group"> -->
@@ -59,6 +59,8 @@
 import Vue from "vue";
 import { mapGetters } from "vuex";
 import { Choice } from "./database";
+import { CONSTANTS } from './constants'
+
 
 class ItemStatus {
     flag: string = "";
@@ -132,9 +134,9 @@ export default Vue.extend({
                 try {
                     if (u.flag_deleted) {
                         if (u.id != undefined)
-                            await this.$store.dispatch("choice/delete", u.id);
+                            await this.$store.dispatch(CONSTANTS.ACTION.CHOICE.DELETE, u.id);
                     } else {
-                        await this.$store.dispatch("choice/put", u.toChoice());
+                        await this.$store.dispatch(CONSTANTS.ACTION.CHOICE.PUT, u.toChoice());
                     }
                 } catch (e) {
                     console.log(e);
@@ -145,7 +147,7 @@ export default Vue.extend({
         },
 
         delete_choice: async function (deleted_id: number) {
-            await this.$store.dispatch("choice/delete", deleted_id);
+            await this.$store.dispatch(CONSTANTS.ACTION.CHOICE.DELETE, deleted_id);
             this.copy();
         },
 
@@ -161,7 +163,6 @@ export default Vue.extend({
         },
 
         check() {
-            console.log("check");
             this.update_available = true;
 
             const counter: { [key: string]: number } = {};
@@ -224,7 +225,7 @@ export default Vue.extend({
         },
 
         restore: async function () {
-            await this.$store.dispatch("choice/get");
+            await this.$store.dispatch(CONSTANTS.ACTION.CHOICE.GET);
             await this.copy();
             await this.check();
         },
