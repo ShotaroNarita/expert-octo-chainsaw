@@ -5,13 +5,14 @@
 </template>
 
 <script lang="ts">
-import EditorChoice from "./EditorChoice.vue";
 import Vue from "vue";
+import EditorChoice from "./EditorChoice.vue";
+
 export default Vue.extend({
     components: { EditorChoice },
 });
 </script>
 
 <style>
-    @import './node_modules/bulma/css/bulma.css';
+@import "./node_modules/bulma/css/bulma.css";
 </style>

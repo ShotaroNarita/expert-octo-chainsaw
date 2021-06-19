@@ -1,18 +1,24 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
-import { SChoice, VChoice } from './database';
+
+// import actions from 'constants'
+import { Choice, Database } from './database'
 
 Vue.use(Vuex);
 
+const dbname = 'appdb';
+
 const store = new Vuex.Store({
     state: {
-        choices: new Array<SChoice>(),
+        choices: new Array<Choice>(),
+        database: new Database(dbname),
     },
 
     mutations: {
-        update_choice: (state, vchoices: Array<VChoice>) => {
-            state.choices = vchoices.filter(v => !v.delete_scheduled).map(v => v.toSChoice());
-        },
+        'choice/update': function (state, latest_choice: Array<Choice>) {
+            console.log('committed!')
+            state.choices = latest_choice;
+        }
     },
 
     getters: {
@@ -20,18 +26,36 @@ const store = new Vuex.Store({
     },
 
     actions: {
-        update_choice: ({ commit, state }, payload: Array<VChoice>) => {
-            return new Promise<void>((resolve, reject) => {
-                // validate payload: Array<Vchoice> comparing with Array<SChoice>
+        'choice/delete': async function ({ commit, state }, choice_id_deleted: number): Promise<void> {
+            await state.database.choices.delete(choice_id_deleted);
+            await this.dispatch('choice/get');
+            return;
+        },
 
-                // save to indexeddb
-                commit('update_choice', payload);
+        'choice/add': async function ({ commit, state }, choice_added: Choice): Promise<void> {
+            await state.database.choices.add(choice_added);
+            await this.dispatch('choice/get');
+            return;
+        },
 
-                resolve();
-            });
-        }
+        'choice/put': async function ({ commit, state }, choice_updated: Choice): Promise<void> {
+            await state.database.choices.put(choice_updated);
+            await this.dispatch('choice/get');
+            return;
+        },
+
+        'choices/put': async function ({ commit, state }, choices_updated: Array<Choice>): Promise<void> {
+            await state.database.choices.bulkPut(choices_updated);
+            await this.dispatch('choice/get');
+            return;
+        },
+
+        'choice/get': async function ({ commit, state }): Promise<void> {
+            const latest_choice: Array<Choice> = await state.database.choices.toArray();
+            commit('choice/update', latest_choice);
+            return;
+        },
     },
-
-});
+})
 
 export default store;

@@ -1,180 +1,246 @@
 <template>
     <div class="content">
-        <table>
-            <thead>
-                <tr>
-                    <th>id</th>
-                    <th>partnumber</th>
-                    <th>description</th>
-                    <th>val1</th>
-                    <th>val2</th>
-                    <th>delete</th>
-                </tr>
-            </thead>
+        <h1>Editor choice</h1>
+
+        <table class="table">
+            <!-- <tbody is="transition-group"> -->
             <tbody>
-                <tr v-for="(vc, index) in vchoices" :key="index">
+                <tr v-for="(uc, index) in uichoices" :key="uc.vid">
                     <td>
-                        {{ vc.id }}
+                        {{ uc.id == undefined ? "-" : uc.id }}
                     </td>
 
                     <td>
                         <input
                             class="input"
-                            :class="{
-                                'is-warning':
-                                    !vc.delete_scheduled &&
-                                    vc.partnumber_changed,
-                                'is-danger':
-                                    !vc.delete_scheduled &&
-                                    vc.partnumber_alarmed,
-                            }"
+                            :class="stchoices[index].status_pn.flag"
                             type="text"
-                            v-model="vchoices[index].partnumber"
-                            :disabled="vc.delete_scheduled"
+                            v-model="uichoices[index].pn"
+                            :disabled="uichoices[index].flag_deleted"
                         />
                     </td>
 
                     <td>
                         <input
                             class="input"
-                            :class="{
-                                'is-warning':
-                                    !vc.delete_scheduled &&
-                                    vc.description_changed,
-                            }"
+                            :class="stchoices[index].status_cost.flag"
                             type="text"
-                            v-model="vchoices[index].description"
-                            :disabled="vc.delete_scheduled"
+                            v-model="uichoices[index].cost"
+                            :disabled="uichoices[index].flag_deleted"
                         />
                     </td>
 
                     <td>
                         <input
-                            class="input"
-                            type="number"
-                            :class="{
-                                'is-warning':
-                                    !vc.delete_scheduled && vc.list_changed,
-                            }"
-                            v-model="vchoices[index].list"
-                            :disabled="vc.delete_scheduled"
-                        />
-                    </td>
-
-                    <td>
-                        <input
-                            class="input"
-                            type="number"
-                            :class="{
-                                'is-warning':
-                                    !vc.delete_scheduled && vc.cost_changed,
-                            }"
-                            v-model="vchoices[index].cost"
-                            :disabled="vc.delete_scheduled"
-                        />
-                    </td>
-
-                    <td>
-                        <input
-                            class="checkbox"
                             type="checkbox"
-                            v-model="vchoices[index].delete_scheduled"
+                            class="checkbox"
+                            v-model="uichoices[index].flag_deleted"
                         />
                     </td>
                 </tr>
             </tbody>
         </table>
 
-        <button class="button is-primary" @click="add">add</button>
+        <button class="button is-primary" @click="add_choice">add</button>
+
         <button
             class="button is-warning"
-            @click="submit"
+            @click="put_choice"
             :disabled="!update_available"
         >
-            update
+            save
         </button>
+
+        <button class="button is-success" @click="restore">restore</button>
     </div>
 </template>
 
 <script lang="ts">
 import Vue from "vue";
-import { SChoice, VChoice } from "./database";
+import { mapGetters } from "vuex";
+import { Choice } from "./database";
+
+class ItemStatus {
+    flag: string = "";
+    message: string = "";
+
+    set_warning(message: string) {
+        this.flag = "is-warning";
+        this.message = message;
+    }
+
+    set_danger(message: string) {
+        this.flag = "is-danger";
+        this.message = message;
+    }
+
+    set_info(message: string) {
+        this.flag = "is-info";
+        this.message = message;
+    }
+
+    clear() {
+        this.flag = "";
+        this.message = "";
+    }
+}
+
+class STChoice {
+    status_pn: ItemStatus = new ItemStatus();
+    status_cost: ItemStatus = new ItemStatus();
+}
+
+class UIChoice extends Choice {
+    static count: number = 0;
+    vid: number;
+    flag_deleted: boolean = false;
+    constructor(c: Choice) {
+        super(c.pn, c.cost);
+        this.id = c.id;
+
+        this.vid = UIChoice.count;
+        UIChoice.count += 1;
+    }
+
+    toChoice() {
+        const c = new Choice(this.pn, this.cost);
+        c.id = this.id;
+        return c;
+    }
+}
 
 export default Vue.extend({
     data: function () {
         return {
-            vchoices: new Array<VChoice>(),
-            update_available: false,
+            uichoices: new Array<UIChoice>(),
+            stchoices: new Array<STChoice>(),
+            update_available: true,
         };
     },
 
     methods: {
-        async submit() {
-            await this.$store.dispatch("update_choice", this.vchoices);
+        add_choice: async function () {
+            this.uichoices.push(new UIChoice(new Choice("", 0)));
+            this.stchoices.push(new STChoice());
+        },
+
+        put_choice: async function () {
+            for (let i in this.uichoices) {
+                const s = this.stchoices[i];
+                const u = this.uichoices[i];
+
+                try {
+                    if (u.flag_deleted) {
+                        if (u.id != undefined)
+                            await this.$store.dispatch("choice/delete", u.id);
+                    } else {
+                        await this.$store.dispatch("choice/put", u.toChoice());
+                    }
+                } catch (e) {
+                    console.log(e);
+                }
+            }
+
+            return this.copy();
+        },
+
+        delete_choice: async function (deleted_id: number) {
+            await this.$store.dispatch("choice/delete", deleted_id);
             this.copy();
         },
 
-        copy() {
-            this.vchoices = this.$store.getters.choices.map((c: SChoice) => {
-                return c.toVChoice();
-            });
-        },
+        copy: function () {
+            this.uichoices = new Array();
 
-        add() {
-            this.vchoices.push(new VChoice("", "", 0, 0));
+            this.uichoices = this.$store.getters.choices.map(
+                (c: Choice) => new UIChoice(c)
+            );
+            this.stchoices = this.uichoices.map(
+                (_: UIChoice) => new STChoice()
+            );
         },
 
         check() {
+            console.log("check");
             this.update_available = true;
-            let counter: { [key: string]: number } = {};
-            for (let v of this.vchoices) {
-                if (!(v.partnumber in counter)) counter[v.partnumber] = 0;
-                if (!v.delete_scheduled) counter[v.partnumber] += 1;
-            }
 
-            for (let i = 0; i < this.vchoices.length; i++) {
-                const v = this.vchoices[i];
-                this.vchoices[i].partnumber_alarmed =
-                    1 < counter[v.partnumber] || (!v.delete_scheduled && v.partnumber == "");
+            const counter: { [key: string]: number } = {};
+            for (let i in this.uichoices) {
+                const u = this.uichoices[i];
+                const s = this.stchoices[i];
 
-                this.update_available &&= !this.vchoices[i].partnumber_alarmed;
-
-                const master: VChoice | undefined =
-                    this.$store.getters.choices.find(
-                        (c: SChoice) => c.id === v.id
-                    );
-
-                if (master === undefined) {
-                    this.vchoices[i].partnumber_changed = true;
-                    this.vchoices[i].list_changed = true;
-                    this.vchoices[i].cost_changed = true;
-                    this.vchoices[i].description_changed = true;
-                } else {
-                    this.vchoices[i].partnumber_changed =
-                        v.partnumber != master.partnumber;
-                    this.vchoices[i].list_changed = v.list != master.list;
-                    this.vchoices[i].cost_changed = v.cost != master.cost;
-                    this.vchoices[i].description_changed =
-                        v.description != master.description;
+                if (!u.flag_deleted) {
+                    if (!(u.pn in counter)) counter[u.pn] = 0;
+                    counter[u.pn] += 1;
                 }
             }
+
+            for (let i in this.uichoices) {
+                const u = this.uichoices[i];
+                this.stchoices[i].status_pn.clear();
+                this.stchoices[i].status_cost.clear();
+
+                if (this.uichoices[i].flag_deleted) {
+                    continue;
+                }
+
+                const cp = this.choices.find((e: Choice) => e.id == u.id);
+                if (cp == undefined) {
+                    this.stchoices[i].status_pn.set_warning("new item");
+                    this.stchoices[i].status_cost.set_warning("new item");
+                } else {
+                    if (cp.pn != u.pn)
+                        this.stchoices[i].status_pn.set_warning(
+                            "update needed"
+                        );
+                    else this.stchoices[i].status_pn.clear();
+
+                    if (cp.cost != u.cost)
+                        this.stchoices[i].status_cost.set_warning(
+                            "update needed"
+                        );
+                    else this.stchoices[i].status_cost.clear();
+                }
+
+                if (u.pn === "") {
+                    this.stchoices[i].status_pn.set_danger("blank not allowed");
+                }
+
+                if (1 < counter[u.pn]) {
+                    this.stchoices[i].status_pn.set_danger(
+                        "duplicated part number"
+                    );
+                }
+
+                this.update_available = !this.stchoices.some(
+                    (s: STChoice, i: number) =>
+                        !this.uichoices[i].flag_deleted &&
+                        s.status_pn.flag === "is-danger"
+                );
+                // this.update_available &&= this.uichoices.every(
+                //     (u: UIChoice) => u.pn !== ""
+                // );
+            }
+        },
+
+        restore: async function () {
+            await this.$store.dispatch("choice/get");
+            await this.copy();
+            await this.check();
         },
     },
 
-    mounted() {
-        this.vchoices.push(new VChoice("a", "p", 100, 500));
-        this.vchoices.push(new VChoice("b", "q", 200, 600));
-        this.vchoices.push(new VChoice("c", "r", 300, 700));
-        this.vchoices.push(new VChoice("d", "s", 400, 800));
-        this.vchoices.push(new VChoice("e", "t", 500, 900));
-        this.vchoices.push(new VChoice("f", "u", 600, 1000));
+    mounted: async function () {
+        await this.restore();
+    },
 
-        this.submit();
+    computed: {
+        ...mapGetters(["choices"]),
     },
 
     watch: {
-        vchoices: {
-            handler() {
+        uichoices: {
+            handler: function () {
                 this.check();
             },
             deep: true,
@@ -182,3 +248,14 @@ export default Vue.extend({
     },
 });
 </script>
+
+<style scoped>
+.v-leave-active,
+.v-enter-active {
+    transition: opacity 0.2s;
+}
+.v-enter,
+.v-leave-to {
+    opacity: 0;
+}
+</style>
