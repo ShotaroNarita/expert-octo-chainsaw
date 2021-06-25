@@ -1,37 +1,17 @@
 <template>
     <div>
-        <app-tab></app-tab>
-
-        <div class="section">
-            <editor-choice
-                v-if="current_mode == CONSTANTS.MODE.CHOICE_EDITOR"
-            ></editor-choice>
-
-            <editor-model
-                v-if="current_mode == CONSTANTS.MODE.MODEL_EDITOR"
-            ></editor-model>
-        </div>
+        <h1>hello world</h1>
+        <editor-choice></editor-choice>
     </div>
 </template>
 
 <script lang="ts">
 import Vue from "vue";
-import { mapGetters } from "vuex";
-import AppTab from "./AppTab.vue";
-import EditorChoice from "./EditorChoice.vue";
-import EditorModel from "./EditorModel.vue";
-import { CONSTANTS } from "./constants";
+import EditorChoice from "./components/EditorChoice.vue";
 
 export default Vue.extend({
-    components: { AppTab, EditorChoice, EditorModel },
-    data() {
-        return {
-            CONSTANTS: CONSTANTS,
-        };
-    },
-
-    computed: {
-        ...mapGetters(["current_mode"]),
+    components: {
+        EditorChoice,
     },
 });
 </script>
