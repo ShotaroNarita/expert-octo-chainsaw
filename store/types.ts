@@ -1,13 +1,22 @@
-import Dexie from "dexie";
+import Dexie, { Table } from "dexie";
 
-export class Connector<T> extends Dexie {
-    body: Dexie.Table<T, number>;
-    constructor(dbname: string, tablename: string, columns: string) {
-        super(dbname);
-        this.version(1).stores({
-            [tablename]: columns
-        });
-        this.body = this.table(tablename);
-        // this.body.mapToClass(T);
+const dbname = 'app'
+
+export class Connector {
+    static db: Dexie = new Dexie(dbname);
+    static tables: { [key: string]: any } = {};
+    static schemas: { [key: string]: string } = {};
+
+    static use(tablename: string, schema: string) {
+        this.schemas[tablename] = schema;
+    }
+
+    static lock() {
+        console.log('version', this.db.verno);
+        this.db.version(this.db.verno + 1).stores(this.schemas);
+
+        for (let tablename in this.schemas) {
+            this.tables[tablename] = this.db.table(tablename);
+        }
     }
 }

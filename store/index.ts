@@ -3,22 +3,19 @@ import Vuex from 'vuex'
 
 Vue.use(Vuex);
 
-
 import choiceModule from './Choice'
+import skeletonModule from './Skeleton'
+import modeModule from './Mode'
+import { Connector } from './types';
 
-const dbname = 'appdb';
+Connector.lock();
 
 const store = new Vuex.Store({
     modules: {
-        choices: {
-            namespaced: true,
-            ...choiceModule
-        }
+        skeletons: skeletonModule,
+        choices: choiceModule,
+        modes: modeModule,
     },
-
-    state: {
-        count: 1
-    }
 })
 
 export default store;
